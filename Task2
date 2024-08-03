@@ -1,0 +1,89 @@
+import socket
+import requests
+
+def probe_open_ports(host, port_range):
+    """Probe for open ports"""
+    accessible_ports = []
+    for port in port_range:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        socket.setdefaulttimeout(1)
+        result = sock.connect_ex((host, port))
+        if result == 0:
+            accessible_ports.append(port)
+        sock.close()
+    return accessible_ports
+
+def inspect_http_headers(url):
+    """Inspect HTTP headers"""
+    headers = []
+    try:
+        response = requests.get(url, timeout=5)
+        headers = response.headers
+    except requests.RequestException as e:
+        print(f"Error fetching HTTP headers: {e}")
+    return headers
+
+def detect_outdated_server_software(headers):
+    """Detect outdated server software"""
+    outdated = []
+    server = headers.get('Server', '')
+    if 'Apache' in server:
+        version = server.split(' ')[1] if len(server.split(' ')) > 1 else ''
+        if version and version < '2.4.51':
+            outdated.append(f"Apache version {version} is outdated.")
+    elif 'nginx' in server:
+        version = server.split('/')[1] if len(server.split('/')) > 1 else ''
+        if version and version < '1.21.4':
+            outdated.append(f"nginx version {version} is outdated.")
+    return outdated
+
+def identify_security_vulnerabilities(headers):
+    """Identify security vulnerabilities"""
+    issues = []
+    if 'X-Frame-Options' not in headers:
+        issues.append("X-Frame-Options header is missing.")
+    if 'X-Content-Type-Options' not in headers:
+        issues.append("X-Content-Type-Options header is missing.")
+    if 'Content-Security-Policy' not in headers:
+        issues.append("Content-Security-Policy header is missing.")
+    if 'Strict-Transport-Security' not in headers:
+        issues.append("Strict-Transport-Security header is missing.")
+    return issues
+
+def security_audit(host):
+    """Perform security audit"""
+    print(f"Auditing {host} for security vulnerabilities...\n")
+
+    # Probing for open ports
+    port_range = [80, 443, 22, 21, 25, 3305]
+    accessible_ports = probe_open_ports(host, port_range)
+    print(f"**Accessible Ports:** {accessible_ports}\n")
+
+    # Inspecting HTTP headers and server software
+    url = f"http://{host}"
+    headers = inspect_http_headers(url)
+    if headers:
+        print(f"**HTTP Headers:** {headers}\n")
+        outdated_server_software = detect_outdated_server_software(headers)
+        if outdated_server_software:
+            print("**Outdated Server Software Detected:**")
+            for issue in outdated_server_software:
+                print(f"- {issue}")
+            print()
+        else:
+            print("**No Outdated Server Software Detected.**\n")
+
+        security_issues = identify_security_vulnerabilities(headers)
+        if security_issues:
+            print("**Security Vulnerabilities Detected:**")
+            for issue in security_issues:
+                print(f"- {issue}")
+            print()
+        else:
+            print("**No Security Vulnerabilities Detected.**\n")
+    else:
+        print("**Could not retrieve HTTP headers.**\n")
+
+if __name__ == "__main__":
+    host = input("Enter the host (IP address or domain): ")
+    security_audit(host)
